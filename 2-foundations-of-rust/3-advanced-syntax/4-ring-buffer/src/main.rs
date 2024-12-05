@@ -19,15 +19,15 @@
 //  - add a method "peek" so that "queue.peek()" returns the same thing as "queue.read()", but leaves the element in the queue
 
 struct RingBuffer {
-    data: [u8; 16],
+    data: Box<[u8]>,
     start: usize,
     end: usize,
 }
 
 impl RingBuffer {
-    fn new() -> RingBuffer {
+    fn new(size: usize) -> RingBuffer {
         RingBuffer {
-            data: [0; 16],
+            data: make_box(size),
             start: 0,
             end: 0,
         }
@@ -37,7 +37,16 @@ impl RingBuffer {
     /// it returns None if the queue was empty
 
     fn read(&mut self) -> Option<u8> {
-        todo!()
+        if self.start == self.end {
+            None
+        } else {
+            let val = self.data[self.start];
+
+            self.start += 1;
+            self.start %= self.len();
+
+            Some(val)
+        }
     }
 
     /// This function tries to put `value` on the queue; and returns true if this succeeds
@@ -45,7 +54,7 @@ impl RingBuffer {
 
     fn write(&mut self, value: u8) -> bool {
         self.data[self.end] = value;
-        let pos = (self.end + 1) % self.data.len();
+        let pos = (self.end + 1) % self.len();
         if pos == self.start {
             // the buffer can hold no more new data
             false
@@ -53,6 +62,22 @@ impl RingBuffer {
             self.end = pos;
 
             true
+        }
+    }
+
+    fn len(&self) -> usize {
+        self.data.len()
+    }
+
+    fn has_room(&self) -> bool {
+        (self.start + self.len() - self.end) % self.len() != 1
+    }
+
+    fn peek(&self) -> Option<u8> {
+        if self.start == self.end {
+            None
+        } else {
+            Some(self.data[self.start])
         }
     }
 }
@@ -75,13 +100,43 @@ impl Iterator for RingBuffer {
 }
 
 fn main() {
-    let mut queue = RingBuffer::new();
-    assert!(queue.write(1));
-    assert!(queue.write(2));
-    assert!(queue.write(3));
-    assert!(queue.write(4));
-    assert!(queue.write(5));
+    let mut queue = RingBuffer::new(16);
+
+    println!("{}", queue.has_room());
+
+    for i in 1.. {
+        if !queue.write(i) {
+            break;
+        }
+    }
+
+    println!("{}", queue.has_room());
+
+    println!("{:?}", queue.peek());
+
     for elem in queue {
         println!("{elem}");
     }
+
+    // Output:
+    // true
+    // false
+    // Some(1)
+    // 1
+    // 2
+    // 3
+    // 4
+    // 5
+    // 6
+    // 7
+    // 8
+    // 9
+    // 10
+    // 11
+    // 12
+    // 13
+    // 14
+    // 15
+
+    // Result: There can be 15 elements at most (size - 1)
 }
